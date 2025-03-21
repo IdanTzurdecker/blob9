@@ -1,0 +1,86 @@
+import React, { useState, useRef } from 'react';
+import { Popper, Button, ClickAwayListener, MenuList, MenuItem, Box, Typography } from '@mui/material';
+
+const DropdownWithHeaderFooter = () => {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef(null);
+
+  // Toggle the dropdown menu open/close
+  const handleToggle = () => setOpen((prevOpen) => !prevOpen);
+
+  // Close the dropdown when clicking outside
+  const handleClickAway = () => setOpen(false);
+
+  return (
+    <div>
+      {/* Button to toggle the dropdown */}
+      <Button ref={buttonRef} onClick={handleToggle}>
+        Toggle Dropdown
+      </Button>
+
+      {/* Popper for dropdown */}
+      <ClickAwayListener onClickAway={handleClickAway}>
+        <Popper open={open} anchorEl={buttonRef.current} placement="bottom-start" disablePortal>
+          <Box
+            sx={{
+              borderRadius: 1,
+              boxShadow: 3,
+              maxHeight: 250, // Ensuring the height is enough to show 4.5 items
+              width: 200,
+              overflowY: 'auto', // Enable scrolling
+              display: 'flex',
+              flexDirection: 'column',
+              // Hide the scrollbar but keep the scrollable area
+              '&::-webkit-scrollbar': {
+                display: 'none', // Hide scrollbar for Webkit browsers (Chrome, Safari)
+              },
+            }}
+          >
+            {/* Stationary header */}
+            <Box
+              sx={{
+                backgroundColor: '#f5f5f5',
+                padding: '8px 16px',
+                borderTopLeftRadius: 4,
+                borderTopRightRadius: 4,
+                textAlign: 'center',
+              }}
+            >
+              <Typography variant="subtitle1" noWrap>
+                Header
+              </Typography>
+            </Box>
+
+            {/* Scrollable menu list */}
+            <MenuList sx={{ padding: 0 }}>
+              <Box sx={{ maxHeight: 'calc(4.5 * 40px)', overflowY: 'scroll' }}>
+                {[...Array(10)].map((_, index) => (
+                  <MenuItem key={index} sx={{ padding: '8px 16px' }}>
+                    Item {index + 1}
+                  </MenuItem>
+                ))}
+              </Box>
+            </MenuList>
+
+            {/* Stationary footer */}
+            <Box
+              sx={{
+                backgroundColor: '#f5f5f5',
+                padding: '8px 16px',
+                borderBottomLeftRadius: 4,
+                borderBottomRightRadius: 4,
+                textAlign: 'center',
+              }}
+            >
+              <Typography variant="subtitle2" noWrap>
+                Footer
+              </Typography>
+            </Box>
+          </Box>
+        </Popper>
+      </ClickAwayListener>
+    </div>
+  );
+};
+
+export default DropdownWithHeaderFooter;
