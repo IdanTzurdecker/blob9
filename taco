@@ -1,86 +1,55 @@
-import React, { useState, useRef } from 'react';
-import { Popper, Button, ClickAwayListener, MenuList, MenuItem, Box, Typography } from '@mui/material';
+using Google.Cloud.SecretManager.V1;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
-const DropdownWithHeaderFooter = () => {
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef(null);
+public class GcpSecretManagerConfigurationProvider : ConfigurationProvider
+{
+    private readonly SecretManagerServiceClient _client;
+    private readonly string _projectId;
+    private readonly IConfiguration _configuration;
 
-  // Toggle the dropdown menu open/close
-  const handleToggle = () => setOpen((prevOpen) => !prevOpen);
+    public GcpSecretManagerConfigurationProvider(string projectId, IConfiguration configuration)
+    {
+        _projectId = projectId;
+        _client = SecretManagerServiceClient.Create();
+        _configuration = configuration;
+    }
 
-  // Close the dropdown when clicking outside
-  const handleClickAway = () => setOpen(false);
+    public override void Load()
+    {
+        var newData = new Dictionary<string, string>();
 
-  return (
-    <div>
-      {/* Button to toggle the dropdown */}
-      <Button ref={buttonRef} onClick={handleToggle}>
-        Toggle Dropdown
-      </Button>
+        foreach (var kvp in _configuration.AsEnumerable())
+        {
+            if (kvp.Value != null && kvp.Value.StartsWith("{GCP_SECRET:"))
+            {
+                var secretName = kvp.Value.Replace("{GCP_SECRET:", "").Replace("}", "").Trim();
+                newData[kvp.Key] = GetSecretValue(secretName).Result ?? throw new Exception($"Secret {secretName} not found in GCP.");
+            }
+            else
+            {
+                newData[kvp.Key] = kvp.Value!;
+            }
+        }
 
-      {/* Popper for dropdown */}
-      <ClickAwayListener onClickAway={handleClickAway}>
-        <Popper open={open} anchorEl={buttonRef.current} placement="bottom-start" disablePortal>
-          <Box
-            sx={{
-              borderRadius: 1,
-              boxShadow: 3,
-              maxHeight: 250, // Ensuring the height is enough to show 4.5 items
-              width: 200,
-              overflowY: 'auto', // Enable scrolling
-              display: 'flex',
-              flexDirection: 'column',
-              // Hide the scrollbar but keep the scrollable area
-              '&::-webkit-scrollbar': {
-                display: 'none', // Hide scrollbar for Webkit browsers (Chrome, Safari)
-              },
-            }}
-          >
-            {/* Stationary header */}
-            <Box
-              sx={{
-                backgroundColor: '#f5f5f5',
-                padding: '8px 16px',
-                borderTopLeftRadius: 4,
-                borderTopRightRadius: 4,
-                textAlign: 'center',
-              }}
-            >
-              <Typography variant="subtitle1" noWrap>
-                Header
-              </Typography>
-            </Box>
+        Data = newData;
+    }
 
-            {/* Scrollable menu list */}
-            <MenuList sx={{ padding: 0 }}>
-              <Box sx={{ maxHeight: 'calc(4.5 * 40px)', overflowY: 'scroll' }}>
-                {[...Array(10)].map((_, index) => (
-                  <MenuItem key={index} sx={{ padding: '8px 16px' }}>
-                    Item {index + 1}
-                  </MenuItem>
-                ))}
-              </Box>
-            </MenuList>
-
-            {/* Stationary footer */}
-            <Box
-              sx={{
-                backgroundColor: '#f5f5f5',
-                padding: '8px 16px',
-                borderBottomLeftRadius: 4,
-                borderBottomRightRadius: 4,
-                textAlign: 'center',
-              }}
-            >
-              <Typography variant="subtitle2" noWrap>
-                Footer
-              </Typography>
-            </Box>
-          </Box>
-        </Popper>
-      </ClickAwayListener>
-    </div>
-  );
-};
-
-export default DropdownWithHeaderFooter;
+    private async Task<string?> GetSecretValue(string secretId)
+    {
+        try
+        {
+            var secretVersion = $"projects/{_projectId}/secrets/{secretId}/versions/latest";
+            var response = await _client.AccessSecretVersionAsync(new AccessSecretVersionRequest { Name = secretVersion });
+            return response.Payload.Data.ToStringUtf8();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching secret {secretId}: {ex.Message}");
+            return null;
+        }
+    }
+}
